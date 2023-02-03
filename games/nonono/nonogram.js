@@ -124,11 +124,11 @@ let lineMesh;
 
 let panel = {
 
-    x_min: -16,
-    x_max: 16,
+    x_min: -4,
+    x_max: 12,
 
-    y_min: -9,
-    y_max: 9
+    y_min: -6,
+    y_max: 10
 };
 
 
@@ -165,10 +165,10 @@ function updateCursor() {
         selectedTile = y * nonogram.width + x;
         cursor_Model.translate(tilePos);  
     }
-    else if(x >= (nonogram.width + 2) && x <= (nonogram.width + 3) &&
-            y >= 0 && y < nonogram.height) {
+    else if(x >= 0 && x < nonogram.width &&
+            y <= -3 && y > -4) {
 
-        selectedColor = y;
+        selectedColor = x;
         cursor_Model.translate(tilePos);  
     }
     else {
@@ -261,6 +261,11 @@ function pointerMove(event) {
     updatePosition(event);
 }
 
+function updateSize() {
+
+    projection.ortho(panel.x_min, panel.x_max, panel.y_min, panel.y_max, 0.1, 10);
+}
+
 
 
 
@@ -337,8 +342,8 @@ function main () {
     paletteTileColors = new Int32Array(colorCount);
     for(let c = 0; c < colorPalette.length; c++) {
 
-        paletteTilePositions[3 * c] = nonogram.width + 2;
-        paletteTilePositions[3 * c + 1] = c;
+        paletteTilePositions[3 * c] = c;
+        paletteTilePositions[3 * c + 1] = -3;
         paletteTilePositions[3 * c + 2] = 0;
 
         paletteTileColors[c] = c;
@@ -347,9 +352,22 @@ function main () {
 
 
     kaleidoscope = new Kaleidoscope("game-canvas", true);
-
+    let ratio = kaleidoscope.canvas.width / kaleidoscope.canvas.height;
     // camera?
     let projection = new Matrix4();
+    if(ratio > 1) { // horizontal
+
+        let width = panel.x_max - panel.x_min;
+        panel.x_min = 4 - (width * ratio * 0.5);
+        panel.x_max = 4 + (width * ratio * 0.5);
+    }
+    else if(ratio < 1) { // vertical
+
+        let height = panel.y_max - panel.y_min;
+        panel.y_min = 4 - (height * ratio * 0.5);
+        panel.y_max = 4 + (height * ratio * 0.5);
+    }
+
     projection.ortho(panel.x_min, panel.x_max, panel.y_min, panel.y_max, 0.1, 10);
 
 
