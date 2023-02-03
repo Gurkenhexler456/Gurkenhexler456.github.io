@@ -6,7 +6,6 @@ layout (location = 2) in vec3 in_Normal;
 
 layout (location = 3) in vec3 in_TilePosition;
 layout (location = 4) in uint in_ColorIndex;
-layout (location = 5) in int in_Visible;
 
 out vec4 vf_Position;
 out vec2 vf_UV;
@@ -22,7 +21,7 @@ void main() {
     vf_Position = u_Model * vec4(in_Position + in_TilePosition, 1.0);
     vf_UV = in_UV;
     vf_Normal = in_Normal;
-    vf_Color = in_Visible != 0 ? u_ColorMap[in_ColorIndex] : u_ColorMap[0];
+    vf_Color = u_ColorMap[in_ColorIndex];
 
     gl_Position = u_Projection * vf_Position;
 }

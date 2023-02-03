@@ -50,9 +50,21 @@ let lineIndices = new Int32Array([
    2, 3
 ]);
 
+let paletteTilePositions;
+let paletteTileColors;
+
 
 let nonogram = { width: 0, height: 0 }
 let selectedTile = -1;
+/**
+ * @type {number}
+ */
+let selectedColor = -1;
+/**
+ * @type {number}
+ */
+let currentColor = 1;
+
 
 /**
  * @type {InstancedMesh}
@@ -62,6 +74,11 @@ let quad;
  * @type {Matrix4}
  */
 let model;
+/**
+ * @type {Shader}
+ */
+let shader;
+
 
 /**
  * @type {IndexedMesh}
@@ -80,11 +97,24 @@ let cursorShader;
  */
 let cursorColor;
 
+
+
+/**
+ * @type {Vector4[]}
+ */
+let colorPalette = [];
+/**
+ * @type {InstancedMesh}
+ */
+let colorPaletteMesh;
 /**
  * @type {Shader}
  */
-let shader;
-
+let colorPaletteShader;
+/**
+ * @type {Matrix4}
+ */
+let colorPaletteModel;
 
 
 /**
@@ -100,6 +130,8 @@ let panel = {
     y_min: -9,
     y_max: 9
 };
+
+
 
 
 
@@ -124,15 +156,25 @@ function updateCursor() {
     let y = Math.round(pos.y);
     let tilePos = new Vector4().set(x, y, 0.0, 1.0);
 
+    selectedTile = -1;
+    selectedColor = -1;
+
     if(x >= 0 && x < nonogram.width &&
         y >= 0 && y < nonogram.height) {
            
         selectedTile = y * nonogram.width + x;
         cursor_Model.translate(tilePos);  
     }
+    else if(x >= (nonogram.width + 2) && x <= (nonogram.width + 3) &&
+            y >= 0 && y < nonogram.height) {
+
+        selectedColor = y;
+        cursor_Model.translate(tilePos);  
+    }
     else {
 
         selectedTile = -1;
+        selectedColor = -1;
         cursor_Model.translate(pos);
     }
 }
@@ -203,12 +245,8 @@ function updatePosition(event) {
     mousePos.x_pixel = event.clientX - canvas.offsetLeft;
     mousePos.y_pixel = event.clientY - canvas.offsetTop;
 
-    //console.log(`${canvasWidth} - ${canvasHeight} | ${event.clientX} - ${event.clientY} | ${canvas.offsetLeft} - ${canvas.offsetTop}`);
-
     mousePos.x = (mousePos.x_pixel - (canvasWidth * 0.5)) / (canvasWidth * 0.5)
     mousePos.y = -(mousePos.y_pixel - (canvasHeight * 0.5)) / (canvasHeight * 0.5);
-
-    //console.log(`${mousePos.x} - ${mousePos.y}`);
 }
 
 
@@ -238,15 +276,18 @@ function pointerDown(event) {
 
     if(selectedTile >= 0) {
 
-        console.log(`Tile ${selectedTile} selected`);
+        //console.log(`Tile ${selectedTile} selected`);
         if(event.button == 0) {
 
-            //tileColors[2 * selectedTile] = 1;
-            tileColors[2 * selectedTile + 1] = 1;
+            tileColors[selectedTile] = currentColor;
         }
-        else if(event.button == 2) {
+    }
+    else if(selectedColor >= 0) {
 
-            tileColors[2 * selectedTile + 1] = 1;
+        //console.log(`Color ${selectedColor} selected`);
+        if(event.button == 0) {
+
+            currentColor = selectedColor;
         }
     }
 
@@ -264,7 +305,7 @@ function main () {
 
     let tileCount = nonogram.width * nonogram.height;
     tilePositions = new Float32Array(tileCount * 3);
-    tileColors = new Int32Array(tileCount * 2);
+    tileColors = new Int32Array(tileCount);
     for(let y = 0; y < nonogram.height; y++) {
 
         for(let x = 0; x < nonogram.width; x++) {
@@ -274,10 +315,36 @@ function main () {
             tilePositions[3 * index + 1]    = y;
             tilePositions[3 * index + 2]    = 0;
 
-            tileColors[2 * index] = (x + y) % 8;
-            tileColors[2 * index + 1] = 0;
+            tileColors[index] = 0;
         }
     }
+
+    colorPalette = [
+        new Vector4().set(0, 0, 0, 0),
+        new Vector4().set(0, 0, 1, 0),
+        new Vector4().set(0, 1, 0, 0), 
+        new Vector4().set(0, 1, 1, 0), 
+        
+        new Vector4().set(1, 0, 0, 1),
+        new Vector4().set(1, 0, 1, 1), 
+        new Vector4().set(1, 1, 0, 1), 
+        new Vector4().set(1, 1, 1, 1)
+    ]
+
+    let colorCount = colorPalette.length;
+    let baseY = -4;
+    paletteTilePositions = new Float32Array(colorCount * 3);
+    paletteTileColors = new Int32Array(colorCount);
+    for(let c = 0; c < colorPalette.length; c++) {
+
+        paletteTilePositions[3 * c] = nonogram.width + 2;
+        paletteTilePositions[3 * c + 1] = c;
+        paletteTilePositions[3 * c + 2] = 0;
+
+        paletteTileColors[c] = c;
+    }
+
+
 
     kaleidoscope = new Kaleidoscope("game-canvas", true);
 
@@ -299,10 +366,27 @@ function main () {
         {index: 3, size: 3, type: gl.FLOAT, normalized: false, stride: 0, offset: 0, divisor: 1}
     ]);
     colorBuffer = quad.addInstanceData(tileColors, [
-        {index: 4, size: 1, type: gl.UNSIGNED_INT, normalized: false, stride: 8, offset: 0, divisor: 1},
-        {index: 5, size: 1, type: gl.INT, normalized: false, stride: 8, offset: 4, divisor: 1}
+        {index: 4, size: 1, type: gl.UNSIGNED_INT, normalized: false, stride: 0, offset: 0, divisor: 1}
     ]);
     quad.setIndices(indices);
+
+
+    // color palette
+    colorPaletteModel = new Matrix4();
+    colorPaletteMesh = new InstancedMesh(colorCount);
+    colorPaletteMesh.setData(vertices, [
+        {index: 0, size: 3, type: gl.FLOAT, normalized: false, stride: 32, offset: 0},
+        {index: 1, size: 2, type: gl.FLOAT, normalized: false, stride: 32, offset: 12},
+        {index: 2, size: 3, type: gl.FLOAT, normalized: false, stride: 32, offset: 20},
+    ]);
+    colorPaletteMesh.setInstanceData(paletteTilePositions, [
+        {index: 3, size: 3, type: gl.FLOAT, normalized: false, stride: 0, offset: 0, divisor: 1}
+    ]);
+    colorPaletteMesh.addInstanceData(paletteTileColors, [
+        {index: 4, size: 1, type: gl.UNSIGNED_INT, normalized: false, stride: 0, offset: 0, divisor: 1}
+    ]);
+    colorPaletteMesh.setIndices(indices);
+
 
     // field shader
     shader = new Shader();
@@ -313,15 +397,10 @@ function main () {
     shader.use();
     shader.setMatrix4("u_Model", model);
     shader.setMatrix4("u_Projection", projection);
-    shader.setVector4("u_ColorMap[0]" , new Vector4().set(0, 0, 0, 0));
-    shader.setVector4("u_ColorMap[1]" , new Vector4().set(0, 0, 1, 0));
-    shader.setVector4("u_ColorMap[2]" , new Vector4().set(0, 1, 0, 0));
-    shader.setVector4("u_ColorMap[3]" , new Vector4().set(0, 1, 1, 0));
+    for(let c = 0; c < colorPalette.length; c++) {
 
-    shader.setVector4("u_ColorMap[4]" , new Vector4().set(1, 0, 0, 1));
-    shader.setVector4("u_ColorMap[5]" , new Vector4().set(1, 0, 1, 1));
-    shader.setVector4("u_ColorMap[6]" , new Vector4().set(1, 1, 0, 1));
-    shader.setVector4("u_ColorMap[7]" , new Vector4().set(1, 1, 1, 1));
+        shader.setVector4(`u_ColorMap[${c}]` , colorPalette[c]);
+    }
 
 
 
@@ -370,7 +449,7 @@ function main () {
 
 
     kaleidoscope.setClearColor(clearColor);
-    kaleidoscope.scene.push(new ShaderGroup(shader, [quad]));
+    kaleidoscope.scene.push(new ShaderGroup(shader, [quad, colorPaletteMesh]));
     kaleidoscope.scene.push(new ShaderGroup(cursorShader, [cursorMesh]));
     kaleidoscope.scene.push(new ShaderGroup(lineShader, [lineMesh]));
 
