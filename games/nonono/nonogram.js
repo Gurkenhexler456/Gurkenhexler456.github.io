@@ -1,5 +1,10 @@
+import { Kaleidoscope, IndexedMesh, InstancedMesh, gl, loadFile, ShaderGroup } from '../../engine/kaleidoscope.js'
+import { Vector4, Matrix4 } from '../../engine/vec_math.js'
+import { Shader } from '../../engine/gl_util.js'
+
 window.onload = main
 
+/** @type {Kaleidoscope} */
 let kaleidoscope;
 let mousePos = { 
     x: 0.0, 
