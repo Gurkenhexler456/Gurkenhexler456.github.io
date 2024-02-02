@@ -205,7 +205,6 @@ class PingPangPungPong {
             let diff = Vec3.abs(new Vec3(pos.x - this.gustav.position.x, pos.y - this.gustav.position.y, 0));
 
             if(diff.x <= Gustav.size.normal && diff.y <= Gustav.size.normal) {
-                console.log("hit gustav");
                 this.pause = !this.pause;
                 return;
             }
@@ -269,7 +268,6 @@ class PingPangPungPong {
 
         if(scored) {
             this.gustav.reset();
-            console.log(`bottom: ${this.player_score[0]} / top: ${this.player_score[1]}`);
         }
 
 
@@ -309,8 +307,6 @@ class PingPangPungPong {
 
     shutdown() {
         this.renderer.cleanup();
-
-        console.log("shutdown");
     }
 }
 
@@ -332,7 +328,6 @@ function loop() {
 
 function start() {
 
-    console.log("Yeeeee");
 
     game = new PingPangPungPong();
     game.init();
